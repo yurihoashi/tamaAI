@@ -59,3 +59,4 @@ coverage.xml
 
 # Secure Astra connection bundle
 secure-connect-pet-db.zip
+tama.venv

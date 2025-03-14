@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -90,6 +89,7 @@ async def log_screen_time(minutes: int):
         raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
+
     
     from dotenv import load_dotenv
     import os
@@ -107,5 +107,3 @@ if __name__ == "__main__":
     db = client.get_database_by_api_endpoint(api_endpoint)
 
     print(f"Connected to Astra DB: {db.list_collection_names()}")
-
-
