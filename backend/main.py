@@ -89,5 +89,21 @@ async def log_screen_time(minutes: int):
         raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+
+    
+    from dotenv import load_dotenv
+    import os
+    from astrapy import DataAPIClient
+
+    # Load environment variables
+    load_dotenv()
+
+    # Retrieve values from .env
+    api_endpoint = os.getenv("ASTRA_DB_API_ENDPOINT")
+    app_token = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
+
+    # Initialize the client with env variables
+    client = DataAPIClient(app_token)
+    db = client.get_database_by_api_endpoint(api_endpoint)
+
+    print(f"Connected to Astra DB: {db.list_collection_names()}")
