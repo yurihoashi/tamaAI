@@ -21,7 +21,9 @@ const createMainWindow = (): void => {
     });
 
     // Load the index.html file.
-    mainWindow.loadFile(path.join(__dirname, 'index.html'));
+    const indexPath = path.join(__dirname, 'src', 'index.html');
+    console.log('Loading index.html from:', indexPath);
+    mainWindow.loadFile(indexPath);
 
     // Open the DevTools in development.
     if (process.env.NODE_ENV === 'development') {
@@ -43,15 +45,28 @@ const createPetWindow = (): void => {
         },
     });
 
-    petWindow.loadFile(path.join(__dirname, 'pet.html'));
+    const petPath = path.join(__dirname, 'src', 'pet.html');
+    console.log('Loading pet.html from:', petPath);
+    petWindow.loadFile(petPath);
     petWindow.setIgnoreMouseEvents(false);
+
+    // Open DevTools for pet window in development
+    if (process.env.NODE_ENV === 'development') {
+        petWindow.webContents.openDevTools();
+    }
 };
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-app.on('ready', () => {
+// This method will be called when Electron has finished initialization
+app.whenReady().then(() => {
     createMainWindow();
     createPetWindow();
+
+    app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+            createMainWindow();
+            createPetWindow();
+        }
+    });
 });
 
 // Quit when all windows are closed.
@@ -61,15 +76,8 @@ app.on('window-all-closed', () => {
     }
 });
 
-app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-        createMainWindow();
-        createPetWindow();
-    }
-});
-
 // Handle pet window dragging
-ipcMain.on('pet-window-drag', (_, { mouseX, mouseY }) => {
+ipcMain.on('pet-window-drag', (event, { mouseX, mouseY }) => {
     if (petWindow) {
         const [x, y] = petWindow.getPosition();
         petWindow.setPosition(x + mouseX, y + mouseY);

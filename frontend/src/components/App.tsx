@@ -13,8 +13,11 @@ import {
     InputLabel,
     Select,
     MenuItem,
+    Alert,
+    Snackbar,
 } from '@mui/material';
 import styled from '@emotion/styled';
+import { updateSettings, UserSettings } from '../api/client';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -43,22 +46,52 @@ const TabPanel = (props: TabPanelProps) => {
 
 const App: React.FC = () => {
     const [tabValue, setTabValue] = useState(0);
-    const [settings, setSettings] = useState({
+    const [settings, setSettings] = useState<UserSettings>({
         sleepTime: '22:00',
         wakeTime: '07:00',
         screenTimeLimit: 120, // minutes
         unhealthyFoodLimit: 3, // per week
     });
+    const [snackbar, setSnackbar] = useState<{
+        open: boolean;
+        message: string;
+        severity: 'success' | 'error';
+    }>({
+        open: false,
+        message: '',
+        severity: 'success',
+    });
 
-    const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
         setTabValue(newValue);
     };
 
-    const handleSettingChange = (setting: string, value: any) => {
+    const handleSettingChange = (setting: keyof UserSettings, value: any) => {
         setSettings(prev => ({
             ...prev,
             [setting]: value,
         }));
+    };
+
+    const handleSaveSettings = async () => {
+        try {
+            await updateSettings(settings);
+            setSnackbar({
+                open: true,
+                message: 'Settings saved successfully!',
+                severity: 'success',
+            });
+        } catch (error) {
+            setSnackbar({
+                open: true,
+                message: 'Failed to save settings. Please try again.',
+                severity: 'error',
+            });
+        }
+    };
+
+    const handleCloseSnackbar = () => {
+        setSnackbar(prev => ({ ...prev, open: false }));
     };
 
     return (
@@ -111,7 +144,7 @@ const App: React.FC = () => {
                         </Typography>
                         <Slider
                             value={settings.screenTimeLimit}
-                            onChange={(__, value) => handleSettingChange('screenTimeLimit', value)}
+                            onChange={(e, value) => handleSettingChange('screenTimeLimit', value)}
                             min={30}
                             max={480}
                             valueLabelDisplay="auto"
@@ -136,10 +169,7 @@ const App: React.FC = () => {
                             color="primary"
                             fullWidth
                             sx={{ mt: 2 }}
-                            onClick={() => {
-                                // TODO: Save settings
-                                console.log('Saving settings:', settings);
-                            }}
+                            onClick={handleSaveSettings}
                         >
                             Save Settings
                         </Button>
@@ -156,6 +186,20 @@ const App: React.FC = () => {
                     </Typography>
                 </TabPanel>
             </Paper>
+
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={6000}
+                onClose={handleCloseSnackbar}
+            >
+                <Alert
+                    onClose={handleCloseSnackbar}
+                    severity={snackbar.severity}
+                    sx={{ width: '100%' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </StyledContainer>
     );
 };
