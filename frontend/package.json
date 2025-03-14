@@ -1,0 +1,36 @@
+{
+    "name": "tamaai",
+    "version": "1.0.0",
+    "description": "A Tamagotchi-style wellness companion",
+    "main": "src/main.js",
+    "scripts": {
+        "start": "electron .",
+        "dev": "electron-forge start",
+        "package": "electron-forge package",
+        "make": "electron-forge make"
+    },
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "electron-squirrel-startup": "^1.0.0",
+        "@emotion/react": "^11.11.0",
+        "@emotion/styled": "^11.11.0",
+        "@mui/material": "^5.13.0",
+        "axios": "^1.4.0"
+    },
+    "devDependencies": {
+        "@electron-forge/cli": "^6.1.1",
+        "@electron-forge/maker-deb": "^6.1.1",
+        "@electron-forge/maker-rpm": "^6.1.1",
+        "@electron-forge/maker-squirrel": "^6.1.1",
+        "@electron-forge/maker-zip": "^6.1.1",
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+        "electron": "^24.3.0",
+        "typescript": "^5.0.4",
+        "vite": "^4.3.5",
+        "@vitejs/plugin-react": "^4.0.0"
+    }
+}
