@@ -125,3 +125,6 @@ coverage.xml
 
 # Secure Astra connection bundle
 secure-connect-pet-db.zip
+
+# Node.js dependencies
+node_modules/
