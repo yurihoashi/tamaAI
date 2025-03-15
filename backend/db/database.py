@@ -12,9 +12,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_cluster():
+    cloud_config = {
+        'secure_connect_bundle': 'secure-connect-pet-db.zip'
+    }
     auth_provider = PlainTextAuthProvider(
-        username=os.getenv('DB_USERNAME'),
-        password=os.getenv('DB_PASSWORD')
+        username=os.getenv('CLIENT_ID'),
+        password=os.getenv('CLIENT_SECRET')
     )
     
     cluster = Cluster(
@@ -22,6 +25,9 @@ def get_cluster():
         port=int(os.getenv('DB_PORT', 9042)),
         auth_provider=auth_provider
     )
+
+    cluster = Cluster(cloud=cloud_config, auth_provider=auth_provider)
+
     return cluster
 
 def init_database():
@@ -67,7 +73,6 @@ class User(Model):
     user_id = columns.UUID(primary_key=True)
     username = columns.Text(required=True, index=True)
     email = columns.Text(required=True)
-    password_hash = columns.Text(required=True)
     sleep_time = columns.Time()
     wake_time = columns.Time()
     screen_time_limit = columns.Integer()

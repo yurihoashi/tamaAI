@@ -1,26 +1,16 @@
-from fastapi import FastAPI, HTTPException, Depends
+import logging
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from pydantic import BaseModel
 from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
-from datetime import datetime, time
-from typing import Optional
-import io
-import os
+from datetime import datetime
 from dotenv import load_dotenv
 import json
 
-# Pydantic model for user data
-class User(BaseModel):
-    username: str
-    email: str
-    age: int
 
 # Load environment variables
-load_dotenv()
-
-app = FastAPI(title="TamaAI Backend")
+app = FastAPI()
 
 # Setup Cassandra connection
 cloud_config = {
@@ -43,27 +33,27 @@ keyspace = "pet"
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],  # In production, replace with specific origins 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load the food classification model (placeholder)
-# TODO: Replace with actual model path
-# model = tf.keras.models.load_model("path_to_model")
 
-# class UserSettings(BaseModel):
-#     sleep_time: time
-#     wake_time: time
-#     screen_time_limit: int  # minutes
-#     unhealthy_food_limit: int  # per week
 
-# class PetStats(BaseModel):
-#     health: float
-#     happiness: float
-#     energy: float
-#     hunger: float
+class PetStats(BaseModel):
+    health: float = 100.0
+    happiness: float = 100.0
+    energy: float = 100.0
+    hunger: float = 100.0
+
+# Pydantic model for user data
+class User(BaseModel):
+    id: int
+    name: str
+    email: str
+    age: int
+    create_at: datetime
 
 
 
@@ -73,40 +63,62 @@ async def root():
     return {"message": "TamaAI Backend API"}
 
 
-def create_table():
-    session.execute(f"""
-        CREATE TABLE IF NOT EXISTS {keyspace}.users (
-            username TEXT PRIMARY KEY,
-            email TEXT,
-            age INT
-        );
-    """)
-
 
 @app.post("/user")
 async def create_user_db(user: User):
-    create_table()
-    # Insert the user into the Cassandra table
     try:
+        # Make sure the table exists
+        session.execute(f"""
+            CREATE TABLE IF NOT EXISTS {keyspace}.users (
+                id INT PRIMARY KEY,
+                name TEXT,
+                email TEXT,
+                age INT
+            );
+        """)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating table: {e}")
+    
+    logging.info("Table 'users' checked/created successfully.")
+    
+    # Initialize the PetStats with default values
+    pet_stats = PetStats()
+
+    # Serialize pet_stats into JSON
+    pet_stats_json = pet_stats.json()
+
+    try:
+        # Insert the user and their settings as JSON
         session.execute(
-            f"INSERT INTO {keyspace}.users (username, email, age) VALUES (%s, %s, %s)",
-            (user.username, user.email, user.age)
+            f"""
+            INSERT INTO {keyspace}.users (id, name, email, age)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (user.id, user.name, user.email, user.age, pet_stats_json)
         )
+        logging.info(f"User {user.id} created successfully")
         return {"message": "User created successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error inserting user into database: {e}")
-
-
-# Endpoint to retrieve user data by id
+    
 @app.get("/user/{user_id}")
 async def get_user(user_id: int):
     query = f"SELECT id, name, email, age FROM {keyspace}.users WHERE id = %s"
     row = session.execute(query, (user_id,)).one()
 
     if row:
-        return {"id": row.id, "name": row.name, "email": row.email, "age": row.age}
+        petsetting = PetStats.parse_raw(row.petsetting)
+
+        return {
+            "id": row.id,
+            "name": row.name,
+            "email": row.email,
+            "age": row.age
+        }
     else:
         raise HTTPException(status_code=404, detail="User not found")
+    
+
 # @app.post("/analyze-food")
 # async def analyze_food(file: UploadFile = File(...)):
 #     try:
