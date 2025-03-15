@@ -1,12 +1,16 @@
 from datetime import datetime
 import logging
 import uuid
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Form, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
 import json
+import analysis
+import os
+from PIL import Image
+import io
 
 # Load environment variables
 app = FastAPI()
@@ -27,7 +31,7 @@ cluster = Cluster(cloud=cloud_config, auth_provider=auth_provider)
 session = cluster.connect()
 
 # Define the keyspace
-keyspace = "pet"
+keyspace = "health"
 
 # Configure CORS
 app.add_middleware(
@@ -37,7 +41,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 class PetStats(BaseModel):
@@ -123,26 +126,93 @@ async def get_user(user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching user: {e}")
 
+processor, model = analysis.load_model()
 
+# Endpoint to analyze the food image
+@app.post("/analyse-food")
+async def analyze_food(file: UploadFile = File(...)):
+    global processor, model
+    try:
+        # # Read and preprocess the image
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        # processor, model = analysis.load_model()
+        # image_dir = "../images/image_downloads/healthy_dinner_3.jpg"
+        # image_path = "../images/image_downloads/healthy_dinner_3.jpg"
+        description = analysis.describe_food_image(image, processor, model)
+        if description:
+            nut_score, filtered = analysis.extract_score(description)
+            if filtered:
+                print(f"Filtered: {filtered}")
 
+                if filtered == "food":
+                    nut_score = 0.0
 
-# @app.post("/analyze-food")
-# async def analyze_food(file: UploadFile = File(...)):
-#     try:
-#         # Read and preprocess the image
-#         contents = await file.read()
-#         image = Image.open(io.BytesIO(contents))
+                return {
+                    "food_type": filtered,
+                    "nutrition_score": nut_score
+                }
+        else:
+            logging.error("No description found for image")
         
-#         # TODO: Implement actual food classification
-#         # For now, return a mock response
-#         return {
-#             "food_type": "healthy",
-#             "confidence": 0.85,
-#             "calories": 250,
-#             "nutrition_score": 8.5
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
+        # TODO: Implement actual food classification
+        # For now, return a mock response
+        return {
+            "food_type": "Not Found",
+            "nutrition_score": 0.0
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+# Pydantic model for the confirmation request
+class FoodConfirmation(BaseModel):
+    updated_description: str
+
+# Endpoint to change the food item, then add
+@app.post("/confirm-food")
+async def confirm_food(confirmation: FoodConfirmation):
+    try:
+        # Re-filter the updated description
+        nut_score, food_item = analysis.extract_score(confirmation.updated_description)
+        
+        # Store in DataStax
+        # session.execute(
+        #     "INSERT INTO food_keyspace.food_ratings (food_item, nutrition_score, timestamp) VALUES (%s, %s, toTimestamp(now()))",
+        #     (food_item, nut_score)
+        # )
+
+        return {
+            "food_type": food_item,
+            "nutrition_score": nut_score,
+            "message": "Food item confirmed and stored."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Endpoint to add the food item
+@app.post("/add-food")
+async def add_food(food_item: str, nutrition_score: float):
+    try:
+        # Store in DataStax
+        # session.execute(
+        #     "INSERT INTO food_keyspace.food_ratings (food_item, nutrition_score, timestamp) VALUES (%s, %s, toTimestamp(now()))",
+        #     (food_item, nutrition_score)
+        # )
+        return {
+            "food_type": food_item,
+            "nutrition_score": nutrition_score,
+            "message": "Food item stored."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    
 
 # @app.post("/settings")
 # async def update_settings(settings: UserSettings):
@@ -169,7 +239,3 @@ async def get_user(user_id: int):
 #         return {"status": "success", "minutes_logged": minutes}
 #     except Exception as e:
 #         raise HTTPException(status_code=400, detail=str(e))
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
