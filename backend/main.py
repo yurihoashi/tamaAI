@@ -10,9 +10,13 @@ from fastapi.responses import JSONResponse
 from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
 import json
+import redis 
 
 # Load environment variables
 app = FastAPI()
+# Connect to Redis server
+redis_client = redis.StrictRedis(host="localhost", port=6379, db=0, decode_responses=True)
+
 
 # Setup Cassandra connection
 cloud_config = {
@@ -183,13 +187,18 @@ async def get_user(user_id: int):
 @app.get('/user/pet/{user_id}')
 async def get_user_pet(user_id: int):
     # First, retrieve the user's information
+    cached_pet = redis_client.get(f"pet_stats:{user_id}")
+    
+    if cached_pet:
+        return json.loads(cached_pet)  # Deserialize JSON data
+    
     try:
         # Now, use the username to find the pet
         pet_query = "SELECT pet_id, pet_name, health, happiness, energy, hunger FROM pet.petspace WHERE pet_id = %s"
         pet_row = session.execute(pet_query, (user_id,)).one()  # Assuming the pet name is formed as "{username}'s Pet"
 
         if pet_row:
-            return {
+            pet_data = {
                 "pet_id": pet_row.pet_id,
                 "pet_name": pet_row.pet_name,
                 "health": pet_row.health,
@@ -197,6 +206,11 @@ async def get_user_pet(user_id: int):
                 "energy": pet_row.energy,
                 "hunger": pet_row.hunger
             }
+
+            redis_client.set(f"pet_stats:{user_id}", json.dumps(pet_data), ex=86400)  # Cache for 1 hour
+            
+            return pet_data
+        
         else:
             raise HTTPException(status_code=404, detail="Pet not found")
     except Exception as e:
