@@ -1,13 +1,12 @@
+from datetime import datetime
 import logging
+import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
-from datetime import datetime
-from dotenv import load_dotenv
 import json
-
 
 # Load environment variables
 app = FastAPI()
@@ -41,20 +40,20 @@ app.add_middleware(
 
 
 
-class PetStats(BaseModel):
-    health: float = 100.0
-    happiness: float = 100.0
-    energy: float = 100.0
-    hunger: float = 100.0
+# class PetStats(BaseModel):
+#     health: float = 100.0
+#     happiness: float = 100.0
+#     energy: float = 100.0
+#     hunger: float = 100.0
 
-# Pydantic model for user data
 class User(BaseModel):
     id: int
-    name: str
+    username: str
     email: str
-    age: int
-    create_at: datetime
-
+    sleep_time: datetime
+    wake_time: datetime
+    screen_time_limit: int 
+    unhealthy_food_limit: int 
 
 
 
@@ -63,57 +62,58 @@ async def root():
     return {"message": "TamaAI Backend API"}
 
 
-
 @app.post("/user")
 async def create_user_db(user: User):
     try:
-        # Make sure the table exists
+        # Ensure the table exists
         session.execute(f"""
-            CREATE TABLE IF NOT EXISTS {keyspace}.users (
+            CREATE TABLE IF NOT EXISTS {keyspace}.userspace (
                 id INT PRIMARY KEY,
-                name TEXT,
+                username TEXT,
                 email TEXT,
-                age INT
+                created_at TIMESTAMP,
+                sleep_time TIME,
+                wake_time TIME,
+                screen_time_limit INT,
+                unhealthy_food_limit INT
             );
         """)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating table: {e}")
     
     logging.info("Table 'users' checked/created successfully.")
-    
-    # Initialize the PetStats with default values
-    pet_stats = PetStats()
-
-    # Serialize pet_stats into JSON
-    pet_stats_json = pet_stats.json()
 
     try:
-        # Insert the user and their settings as JSON
+        create_at = datetime.now()
+        # Insert the user into the database
         session.execute(
             f"""
-            INSERT INTO {keyspace}.users (id, name, email, age)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO {keyspace}.userspace (id, username, email, created_at, sleep_time, wake_time, screen_time_limit, unhealthy_food_limit)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (user.id, user.name, user.email, user.age, pet_stats_json)
+            (
+                user.id, user.username, user.email, create_at,
+                user.sleep_time, user.wake_time, user.screen_time_limit, user.unhealthy_food_limit
+            )
         )
         logging.info(f"User {user.id} created successfully")
         return {"message": "User created successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error inserting user into database: {e}")
-    
+
+
 @app.get("/user/{user_id}")
 async def get_user(user_id: int):
-    query = f"SELECT id, name, email, age FROM {keyspace}.users WHERE id = %s"
+    query = f"SELECT id, name, email FROM {keyspace}.userspace WHERE id = %s"
     row = session.execute(query, (user_id,)).one()
 
     if row:
-        petsetting = PetStats.parse_raw(row.petsetting)
 
         return {
             "id": row.id,
             "name": row.name,
             "email": row.email,
-            "age": row.age
         }
     else:
         raise HTTPException(status_code=404, detail="User not found")
@@ -163,6 +163,6 @@ async def get_user(user_id: int):
 #     except Exception as e:
 #         raise HTTPException(status_code=400, detail=str(e))
 
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000) 
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000) 
