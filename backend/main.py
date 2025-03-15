@@ -40,11 +40,13 @@ app.add_middleware(
 
 
 
-# class PetStats(BaseModel):
-#     health: float = 100.0
-#     happiness: float = 100.0
-#     energy: float = 100.0
-#     hunger: float = 100.0
+class PetStats(BaseModel):
+    pet_id: int 
+    pet_name: str
+    health: float
+    happiness: float
+    energy: float
+    hunger: float
 
 class User(BaseModel):
     id: int
@@ -103,21 +105,26 @@ async def create_user_db(user: User):
         raise HTTPException(status_code=500, detail=f"Error inserting user into database: {e}")
 
 
+
 @app.get("/user/{user_id}")
 async def get_user(user_id: int):
-    query = f"SELECT id, name, email FROM {keyspace}.userspace WHERE id = %s"
-    row = session.execute(query, (user_id,)).one()
+    query = "SELECT id, username, email FROM pet.userspace WHERE id = %s"  # Avoid f-string for query
+    try:
+        row = session.execute(query, (user_id,)).one()
 
-    if row:
+        if row:
+            return {
+                "id": row.id,
+                "username": row.username,  # Corrected from 'name' to 'username'
+                "email": row.email,
+            }
+        else:
+            raise HTTPException(status_code=404, detail="User not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching user: {e}")
 
-        return {
-            "id": row.id,
-            "name": row.name,
-            "email": row.email,
-        }
-    else:
-        raise HTTPException(status_code=404, detail="User not found")
-    
+
+
 
 # @app.post("/analyze-food")
 # async def analyze_food(file: UploadFile = File(...)):
