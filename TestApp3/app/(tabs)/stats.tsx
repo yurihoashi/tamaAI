@@ -47,7 +47,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   content: {
-    padding: 20,
+    paddingTop: 80,
+    paddingHorizontal: 20,
   },
   title: {
     fontSize: 32,
@@ -65,7 +66,7 @@ const styles = StyleSheet.create({
     borderColor: '#000',
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 10,
     fontFamily: 'pixel-font',
