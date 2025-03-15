@@ -47,25 +47,34 @@ app.add_middleware(
 
 class MealActivity(BaseModel):
     meal_name: str
-    healthy_score: int  # Healthy score out of 100
+    healthy_score: int  # Healthy score
 
 class DailyActivity(BaseModel):
     date: date 
     wake_up_time: Optional[time]
-    eat_times: Optional[List[time]]  # List of times for each meal
-    exercise_time: Optional[time]
+    sleep_time: Optional[time]
+    exercise_durection: Optional[float]
     meals: Optional[List[MealActivity]]
-
-
 
 
 
 class PetStats(BaseModel):
     pet_id: int 
     pet_name: str
+
+    # STATS
     happiness: float
     diet: float
     exercise: float
+    
+    # GOALS
+    exercise: time
+    wake_goal: datetime
+    unhealthy_food_limit: int
+
+    #temporary
+    sleep_time: Optional[time] = None
+
 
 class User(BaseModel):
     id: int
@@ -74,7 +83,7 @@ class User(BaseModel):
     sleep_time: datetime
     wake_time: datetime
     screen_time_limit: int 
-    unhealthy_food_limit: int 
+    unhealthy_food_limit: int
 
 
 @app.post("/user")
@@ -104,12 +113,11 @@ async def create_user_db(user: User):
         # Insert the user into the database
         session.execute(
             f"""
-            INSERT INTO {keyspace}.userspace (id, username, email, created_at, sleep_time, wake_time, screen_time_limit, unhealthy_food_limit)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO {keyspace}.userspace (id, username, email, created_at)
+            VALUES (%s, %s, %s, %s)
             """,
             (
-                user.id, user.username, user.email, create_at,
-                user.sleep_time, user.wake_time, user.screen_time_limit, user.unhealthy_food_limit
+                user.id, user.username, user.email, create_at
             )
         )
         logging.info(f"User {user.id} created successfully")
@@ -121,7 +129,9 @@ async def create_user_db(user: User):
             pet_name=pet_name,
             happiness=100.0,
             diet=100.0,
-            exercise=100.0
+            exercise=100.0,
+            wake_goal=user.wake_time, 
+            unhealthy_food_limit=user.unhealthy_food_limit
         )
 
 
@@ -134,17 +144,23 @@ async def create_user_db(user: User):
                 happiness FLOAT,
                 diet FLOAT,
                 exercise FLOAT,
+                sleep_time TIME
             );
             """
         )
 
         session.execute(
             f"""
-            INSERT INTO {keyspace}.petspace (pet_id, pet_name, happiness, diet, exercise)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO {keyspace}.petspace (pet_id, pet_name, happiness, diet, exercise, sleep_time)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
             (
-                pet_stats.pet_id, pet_stats.pet_name, pet_stats.happiness, pet_stats.diet, pet_stats.exercise
+                pet_stats.pet_id, 
+                pet_stats.pet_name, 
+                pet_stats.happiness, 
+                pet_stats.diet, 
+                pet_stats.exercise,
+                pet_stats.sleep_time if pet_stats.sleep_time is not None else None
             )
         )
         
@@ -183,7 +199,7 @@ async def get_user_pet(pet_id: int):
     
     try:
         # Now, use the username to find the pet
-        pet_query = "SELECT pet_id, pet_name, happiness, diet, exercise FROM pet.petspace WHERE pet_id = %s"
+        pet_query = "SELECT pet_id, pet_name, happiness, diet, exercise, sleep_time FROM pet.petspace WHERE pet_id = %s"
         pet_row = session.execute(pet_query, (pet_id,)).one()  # Assuming the pet name is formed as "{username}'s Pet"
 
         if pet_row:
@@ -193,6 +209,7 @@ async def get_user_pet(pet_id: int):
                 "happiness": pet_row.happiness,
                 "diet": pet_row.diet,
                 "exercise": pet_row.exercise,
+                "sleep_time": pet_row.sleep_time
             }
 
             redis_client.set(f"pet_stats:{pet_id}", json.dumps(pet_data), ex=86400)  # Cache for 1 hour
@@ -226,9 +243,9 @@ async def post_user_pet(user_id: int, pet_update: PetStats):
         pet_data = {
             "pet_id": user_id,
             "pet_name": pet_update.pet_name,
-            "health": pet_update.exercise, 
+            "exercise": pet_update.exercise, 
             "happiness": pet_update.happiness,
-            "energy":  pet_update.diet
+            "diet":  pet_update.diet
         }
 
         # Store the updated pet data in Redis for 24 hours
@@ -239,14 +256,26 @@ async def post_user_pet(user_id: int, pet_update: PetStats):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating pet data: {e}")
     
+
+@app.get("/user/{pet_id}/wake")
+async def log_in_wake(pet_id: int):
+
+    pet_data = await get_user_pet(pet_id)  # Call the async function
+    pet_data = pet_data["pet_data"]
+
+    
+
+    # Process pet_data if needed
+    return {"message": f"{pet_data['pet_name']} has woken up!", "pet_info": pet_data}
     
 # @app.post("/user/{pet_id}")
 # async def log_in_activity():
 #     raise NotImplementedError
 
-# @app.post("/pet/{pet_id}/sleep")
-# async def log_in_sleep(pet_id: int, sleep_time : datetime ):
-#     raise NotImplementedError
+@app.post("/pet/{pet_id}/sleep")
+async def log_in_sleep(pet_id: int):
+
+    raise NotImplementedError
 
 # @app.post("/pet/{pet_id}/exercise")
 # async def log_in_exercise():
