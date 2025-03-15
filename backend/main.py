@@ -502,22 +502,4 @@ async def log_exercise(user_id: int,exercise_dur: float):
 
     return {"message": "Succeed to log exercise"}
 
-if __name__ == "__main__":
 
-    
-    from dotenv import load_dotenv
-    import os
-    from astrapy import DataAPIClient
-
-    # Load environment variables
-    load_dotenv()
-
-    # Retrieve values from .env
-    api_endpoint = os.getenv("ASTRA_DB_API_ENDPOINT")
-    app_token = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
-
-    # Initialize the client with env variables
-    client = DataAPIClient(app_token)
-    db = client.get_database_by_api_endpoint(api_endpoint)
-
-    print(f"Connected to Astra DB: {db.list_collection_names()}")
