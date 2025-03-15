@@ -100,7 +100,47 @@ async def create_user_db(user: User):
             )
         )
         logging.info(f"User {user.id} created successfully")
-        return {"message": "User created successfully"}
+
+        # Create a pet for the user
+        pet_name = f"{user.username}'s Pet"
+        pet_stats = PetStats(
+            pet_id=user.id,
+            pet_name=pet_name,
+            health=100.0,  # Set default values for the pet stats
+            happiness=100.0,
+            energy=100.0,
+            hunger=0.0
+        )
+
+
+         # Insert the pet into the database
+        session.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {keyspace}.petspace (
+                pet_id INT PRIMARY KEY,
+                pet_name TEXT,
+                health FLOAT,
+                happiness FLOAT,
+                energy FLOAT,
+                hunger FLOAT
+            );
+            """
+        )
+
+        session.execute(
+            f"""
+            INSERT INTO {keyspace}.petspace (pet_id, pet_name, health, happiness, energy, hunger)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (
+                pet_stats.pet_id, pet_stats.pet_name, pet_stats.health,
+                pet_stats.happiness, pet_stats.energy, pet_stats.hunger
+            )
+        )
+        
+        logging.info(f"Pet {pet_name} created for user {user.id} successfully")
+
+        return {"message": f"Pet {pet_name} created for user {user.id} successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error inserting user into database: {e}")
 
@@ -124,6 +164,33 @@ async def get_user(user_id: int):
         raise HTTPException(status_code=500, detail=f"Error fetching user: {e}")
 
 
+@app.get('/user/pet/{user_id}')
+async def get_user_pet(user_id: int):
+    # First, retrieve the user's information
+    try:
+        # Now, use the username to find the pet
+        pet_query = "SELECT pet_id, pet_name, health, happiness, energy, hunger FROM pet.petspace WHERE pet_id = %s"
+        pet_row = session.execute(pet_query, (user_id,)).one()  # Assuming the pet name is formed as "{username}'s Pet"
+
+        if pet_row:
+            return {
+                "pet_id": pet_row.pet_id,
+                "pet_name": pet_row.pet_name,
+                "health": pet_row.health,
+                "happiness": pet_row.happiness,
+                "energy": pet_row.energy,
+                "hunger": pet_row.hunger
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Pet not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching user or pet: {e}")
+
+
+
+@app.post("/user/{}")
+async def log_in_activity():
+    raise NotImplementedError
 
 
 # @app.post("/analyze-food")
