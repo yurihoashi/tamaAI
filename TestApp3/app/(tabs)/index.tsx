@@ -64,7 +64,7 @@ const app = () => {
   const [appIsReady, setAppIsReady] = useState(false);
   const [stats, setStats] = useState<Stats>({
     happiness: 80,
-    diet: 50,
+    diet: 80,
     sleep: 60,
     exercise: 40,
   });
@@ -106,7 +106,7 @@ const app = () => {
           'pixel-font': ASSETS.fonts.pixel,
         });
       } catch (e) {
-        console.warn(e);
+        console.warn('Font loading error: ', e);
       } finally {
         setAppIsReady(true);
       }
@@ -166,10 +166,9 @@ const styles = StyleSheet.create({
   },
   text: {
     color: 'black',
-    fontSize: 42,
-    fontWeight: 'bold',
-    textAlign: 'center',
     fontFamily: 'pixel-font',
+    fontSize: 42,
+    textAlign: 'center',
     marginBottom: 20,
   },
   image: {

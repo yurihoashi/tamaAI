@@ -52,7 +52,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
     marginBottom: 20,
     fontFamily: 'pixel-font',
     textAlign: 'center',
@@ -67,7 +66,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 10,
     fontFamily: 'pixel-font',
   },
@@ -84,7 +82,6 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 16,
-    fontWeight: 'bold',
     fontFamily: 'pixel-font',
   },
   achievementRow: {
@@ -97,7 +94,6 @@ const styles = StyleSheet.create({
   },
   achievementTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
     marginBottom: 4,
     fontFamily: 'pixel-font',
   },
