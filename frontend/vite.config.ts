@@ -1,23 +1,31 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
+import path from 'path';
 
-// https://vitejs.dev/config/
 export default defineConfig({
     plugins: [react()],
     base: './',
     build: {
         outDir: 'dist',
+        emptyOutDir: false,
         rollupOptions: {
             input: {
-                main: resolve(__dirname, 'src/index.html'),
-                pet: resolve(__dirname, 'src/pet.html'),
+                index: path.resolve(__dirname, 'src/index.html'),
+                pet: path.resolve(__dirname, 'src/pet.html')
             },
+            output: {
+                dir: 'dist',
+                entryFileNames: 'src/[name].js',
+                chunkFileNames: 'src/[name].[hash].js',
+                assetFileNames: 'src/[name].[ext]'
+            }
         },
+        assetsDir: 'src'
     },
     resolve: {
         alias: {
-            '@': resolve(__dirname, 'src'),
+            '@': path.resolve(__dirname, 'src'),
         },
     },
+    publicDir: 'src/assets',
 }); 
