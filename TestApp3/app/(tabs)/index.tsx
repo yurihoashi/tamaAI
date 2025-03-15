@@ -2,10 +2,13 @@ import { View, Text, StyleSheet, Image, Dimensions } from 'react-native'
 import React, { useState, useCallback, useEffect } from 'react'
 import * as Font from 'expo-font'
 import * as SplashScreen from 'expo-splash-screen'
+import { constants } from 'buffer';
+
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
+const appTitle = "PET NAME"
 // Asset constants
 const ASSETS = {
   images: {
@@ -30,16 +33,16 @@ const getStatColor = (value: number): string => {
 };
 
 interface StatBarProps {
-  label: string;
-  value: number;
-  color: string;
+    label: string;
+    value: number;
+    color: string;
 }
 
 interface Stats {
-  energy: number;
-  diet: number;
-  sleep: number;
-  exercise: number;
+    happiness: number;
+    diet: number;
+    sleep: number;
+    exercise: number;
 }
 
 const StatBar: React.FC<StatBarProps> = ({ label, value, color }) => (
@@ -60,9 +63,9 @@ const UPDATE_INTERVAL = 10000; // Update every 10 seconds
 const app = () => {
   const [appIsReady, setAppIsReady] = useState(false);
   const [stats, setStats] = useState<Stats>({
-    energy: 80,
+    happiness: 80,
     diet: 50,
-    sleep: 20,
+    sleep: 60,
     exercise: 40,
   });
 
@@ -78,8 +81,8 @@ const app = () => {
   useEffect(() => {
     const timer = setInterval(() => {
       setStats(prevStats => ({
-        energy: Math.max(MIN_STAT, prevStats.energy - (DECAY_RATE / 6)),
-        diet: Math.max(MIN_STAT, prevStats.diet - (DECAY_RATE / 4)),
+        happiness: Math.max(MIN_STAT, prevStats.happiness - (DECAY_RATE / 6)),
+        diet: prevStats.diet, 
         sleep: Math.max(MIN_STAT, prevStats.sleep - (DECAY_RATE / 3)),
         exercise: Math.max(MIN_STAT, prevStats.exercise - (DECAY_RATE / 5)),
       }));
@@ -88,13 +91,13 @@ const app = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Auto-sleep when energy is low
+  // Auto-sleep when happiness is low
   useEffect(() => {
-    if (stats.energy < 20) {
+    if (stats.happiness < 20) {
       updateStat('sleep', 30);
-      updateStat('energy', 20);
+      updateStat('happiness', 20);
     }
-  }, [stats.energy]);
+  }, [stats.happiness]);
 
   useEffect(() => {
     async function prepare() {
@@ -125,9 +128,9 @@ const app = () => {
   return (
     <View style={styles.container} onLayout={onLayoutRootView}>
       <View style={styles.topContent}>
-        <Text style={styles.text}>Tamagotchi Style App</Text>
+        <Text style={styles.text}>{appTitle}</Text>
         <View style={styles.statsContainer}>
-          <StatBar label="Energy" value={stats.energy} color={getStatColor(stats.energy)} />
+          <StatBar label="Happiness" value={stats.happiness} color={getStatColor(stats.happiness)} />
           <StatBar label="Diet" value={stats.diet} color={getStatColor(stats.diet)} />
           <StatBar label="Sleep" value={stats.sleep} color={getStatColor(stats.sleep)} />
           <StatBar label="Exercise" value={stats.exercise} color={getStatColor(stats.exercise)} />
@@ -188,7 +191,7 @@ const styles = StyleSheet.create({
   statLabel: {
     width: 80,
     fontFamily: 'pixel-font',
-    fontSize: 20,
+    fontSize: 18,
     color: '#000',
     textTransform: 'uppercase',
   },
@@ -210,7 +213,7 @@ const styles = StyleSheet.create({
   statValue: {
     width: 45,
     fontFamily: 'pixel-font',
-    fontSize: 20,
+    fontSize: 16,
     color: '#000',
     textAlign: 'right',
   },

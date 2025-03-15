@@ -4,7 +4,7 @@
     "slug": "TestApp3",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/abbussy_cat.png",
+    "icon": "./assets/images/cats.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

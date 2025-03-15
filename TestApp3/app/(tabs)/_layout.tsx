@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform, Text } from 'react-native';
+import { Platform } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -30,36 +31,28 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => <FontAwesome name="home" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="camera"
+        options={{
+          title: 'Camera',
+          tabBarIcon: ({ color }) => <FontAwesome name="home" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="stats"
+        options={{
+          title: 'Stats',
+          tabBarIcon: ({ color }) => <FontAwesome name="bar-chart" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="pet"
-        options={{
-          title: 'Pet',
-          tabBarLabel: ({ focused }) => (
-            <Text style={{ color: focused ? '#50fa7b' : '#666', fontFamily: 'pixel-font' }}>
-              Pet
-            </Text>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="actions"
-        options={{
-          title: 'Actions',
-          tabBarLabel: ({ focused }) => (
-            <Text style={{ color: focused ? '#50fa7b' : '#666', fontFamily: 'pixel-font' }}>
-              Actions
-            </Text>
-          ),
+          title: 'Settings',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gearshape.fill" color={color} />,
         }}
       />
     </Tabs>
