@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, Text } from 'react-native';
 
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -38,6 +38,28 @@ export default function TabLayout() {
         options={{
           title: 'Explore',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="pet"
+        options={{
+          title: 'Pet',
+          tabBarLabel: ({ focused }) => (
+            <Text style={{ color: focused ? '#50fa7b' : '#666', fontFamily: 'pixel-font' }}>
+              Pet
+            </Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="actions"
+        options={{
+          title: 'Actions',
+          tabBarLabel: ({ focused }) => (
+            <Text style={{ color: focused ? '#50fa7b' : '#666', fontFamily: 'pixel-font' }}>
+              Actions
+            </Text>
+          ),
         }}
       />
     </Tabs>
