@@ -382,7 +382,7 @@ async def get_activity(activity_id: int):
         raise HTTPException(status_code=500, detail=f"Error fetching activity: {e}")
 
 @app.post("/user/activity/{user_id}")
-async def post_activity(user_id: int, activity_update: DailyActivity):
+async def post_activity(user_id: int ,activity_update: DailyActivity):
     try:
         # Correct SQL query with proper field assignments
         update_query = """
@@ -391,27 +391,31 @@ async def post_activity(user_id: int, activity_update: DailyActivity):
                 exercise_duration = %s, meals = %s
             WHERE activity_id = %s
         """
+
+        meals_to_store = [meal.dict() for meal in activity_update.meals] if activity_update.meals else None
+        meals_param = json.dumps(meals_to_store) if meals_to_store is not None else ""
+        
         session.execute(update_query, (
             activity_update.date,
-            activity_update.wake_up_time if activity_update.wake_up_time else None,
-            activity_update.sleep_time if activity_update.sleep_time else None,
+            activity_update.wake_up_time,
+            activity_update.sleep_time,
             activity_update.exercise_duration,
-            json.dumps(activity_update.meals),  # Store as JSON string
+            meals_param,  # Store as JSON string
             user_id
         ))
 
         # After updating the database, update the cache in Redis
         activity_data = {
-            "activity_id": user_id,
-            "date": str(activity_update.date),
-            "wake_up_time": str(activity_update.wake_up_time) if activity_update.wake_up_time else None,
-            "sleep_time": str(activity_update.sleep_time) if activity_update.sleep_time else None,
+            "activity_id": activity_update.activity_id,
+            "date": activity_update.date.isoformat() if activity_update.date else None,
+            "wake_up_time": activity_update.wake_up_time.isoformat() if activity_update.wake_up_time else None,
+            "sleep_time": activity_update.sleep_time.isoformat() if activity_update.sleep_time else None,
             "exercise_duration": activity_update.exercise_duration,
-            "meals": activity_update.meals
+            "meals": [meal.dict() for meal in activity_update.meals] if activity_update.meals else []
         }
 
         # Store updated activity data in Redis for 24 hours (86400 seconds)
-        redis_client.set(f"activity:{user_id}", json.dumps(activity_data), ex=86400)
+        redis_client.set(f"activity:{activity_update.activity_id}", json.dumps(activity_data), ex=86400)
 
         return {"message": "Activity data updated successfully", "activity_data": activity_data}
     
@@ -421,12 +425,10 @@ async def post_activity(user_id: int, activity_update: DailyActivity):
 
 @app.post("/user/activity/wake")
 async def set_wake():
-    activity_date = datetime.date
-    key = f"daily_activity:{activity_date}"
+    activity_data = await get_activity(0)
 
-    value = activitydate.model_dump_json()  # Serialize the object
-
-    redis_client.set(key, value)  # Store in Redis
+    wake_time = datetime.now()
+    sleep_time = activity_data.sleep_time - wake_time
 
     return {"message": "Daily activity stored successfully!", "key": key}
 
