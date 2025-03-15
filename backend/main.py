@@ -166,6 +166,7 @@ async def create_user_db(user: User):
         
         logging.info(f"Pet {pet_name} created for user {user.id} successfully")
 
+   
         return {"message": f"Pet {pet_name} created for user {user.id} successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error inserting user into database: {e}")
@@ -228,7 +229,7 @@ async def post_user_pet(user_id: int, pet_update: PetStats):
         # Update the pet information in the database
         update_query = """
             UPDATE pet.petspace 
-            SET pet_name = %s, happiness = %s, exercise = %s, diet = %s
+            SET pet_name = %s, happiness = %s, exercise = %s, diet = %s, sleep_time= %s
             WHERE pet_id = %s
         """
         session.execute(update_query, (
@@ -236,6 +237,7 @@ async def post_user_pet(user_id: int, pet_update: PetStats):
             pet_update.exercise, 
             pet_update.happiness, 
             pet_update.diet, 
+            pet_update.sleep_time,
             user_id
         ))
 
@@ -245,7 +247,8 @@ async def post_user_pet(user_id: int, pet_update: PetStats):
             "pet_name": pet_update.pet_name,
             "exercise": pet_update.exercise, 
             "happiness": pet_update.happiness,
-            "diet":  pet_update.diet
+            "diet":  pet_update.diet,
+            "sleep_time": pet_update.sleep_time
         }
 
         # Store the updated pet data in Redis for 24 hours
@@ -257,11 +260,14 @@ async def post_user_pet(user_id: int, pet_update: PetStats):
         raise HTTPException(status_code=500, detail=f"Error updating pet data: {e}")
     
 
+@app.post("/user/{pet_id}/")
+
 @app.get("/user/{pet_id}/wake")
 async def log_in_wake(pet_id: int):
 
     pet_data = await get_user_pet(pet_id)  # Call the async function
     pet_data = pet_data["pet_data"]
+
 
     
 
@@ -272,10 +278,14 @@ async def log_in_wake(pet_id: int):
 # async def log_in_activity():
 #     raise NotImplementedError
 
-@app.post("/pet/{pet_id}/sleep")
-async def log_in_sleep(pet_id: int):
+# @app.post("/pet/{pet_id}/sleep")
+# async def log_in_sleep(pet_id: int):
 
-    raise NotImplementedError
+#     query = f"""
+    
+#     """
+
+#     raise NotImplementedError
 
 # @app.post("/pet/{pet_id}/exercise")
 # async def log_in_exercise():
