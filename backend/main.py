@@ -251,15 +251,9 @@ async def get_user(user_id: int):
         raise HTTPException(status_code=500, detail=f"Error fetching user: {e}")
 
 
-
 @app.get('/user/pet/{pet_id}')
 async def get_user_pet(pet_id: int):
-    # Check Redis cache first
-    cached_pet = redis_client.get(f"pet_stats:{pet_id}")
     
-    if cached_pet:
-        return json.loads(cached_pet)  # Deserialize JSON data
-
     try:
         # Ensure `wake_goal` exists in the database or replace it with `wake_up_time`
         pet_query = """
@@ -293,8 +287,6 @@ async def get_user_pet(pet_id: int):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching pet: {e}")
-
-
 
 @app.post("/user/pet/{user_id}")
 async def post_user_pet(user_id: int, pet_update: PetStats):
@@ -344,7 +336,6 @@ async def post_user_pet(user_id: int, pet_update: PetStats):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating pet data: {e}")
 
-
 @app.get('/user/activity/{activity_id}')
 async def get_activity(activity_id: int):
     # Check Redis cache first
@@ -364,9 +355,9 @@ async def get_activity(activity_id: int):
         if activity_row:
             activity_data = {
                 "activity_id": activity_row.activity_id,
-                "date": str(activity_row.date),  # Convert to string
-                "wake_up_time": str(activity_row.wake_up_time) if activity_row.wake_up_time else None,
-                "sleep_time": str(activity_row.sleep_time) if activity_row.sleep_time else None,
+                "date": activity_row.date,  # Convert to string
+                "wake_up_time": activity_row.wake_up_time if activity_row.wake_up_time else None,
+                "sleep_time": activity_row.sleep_time if activity_row.sleep_time else None,
                 "exercise_duration": activity_row.exercise_duration,
                 "meals": json.loads(activity_row.meals) if activity_row.meals else []
             }
@@ -423,87 +414,93 @@ async def post_activity(user_id: int ,activity_update: DailyActivity):
         raise HTTPException(status_code=500, detail=f"Error updating activity data: {e}")
     
 
-@app.post("/user/activity/wake")
-async def set_wake():
-    activity_data = await get_activity(0)
+@app.post("/user/{user_id}/activity/wake")
+async def set_wake(user_id: int):
+    # Fetch activity data for the user and pet data
+    activity_data = await get_activity(user_id)
+    pet_data = await get_user_pet(user_id)
 
+    # Assuming activity_data['sleep_time'] is a string in "HH:MM:SS" format
+    sleep_time_str = activity_data['sleep_time']
+    today_date = datetime.today().date()
+
+    # Adjust to handle the fractional seconds
+    sleep_time = datetime.combine(today_date, datetime.strptime(sleep_time_str, "%H:%M:%S.%f").time())
+    # Calculate wake_time as the current time (let's assume it's 08:30:00 AM)
     wake_time = datetime.now()
-    sleep_time = activity_data.sleep_time - wake_time
+    # Handle the case where sleep_time could be from the previous day
+    if sleep_time > wake_time:
+        sleep_time -= timedelta(days=1)
 
-    return {"message": "Daily activity stored successfully!", "key": key}
+    # Calculate sleep duration in hours
+    sleep_duration = (wake_time - sleep_time).total_seconds() / 3600  # Convert to hours
 
+    # Calculate diet completion
+    sum_data = 0
+    for meal in activity_data['meals']:  # Assuming 'meals' is a list of dicts or objects
+        sum_data += meal['healthy_score']
+
+    # Calculate diet completion
+    diet_comp = min(len(activity_data['meals']) / pet_data['meal_per_day'], 1) * min(sum_data / len(activity_data['meals']) / 7, 1)
+
+    # Calculate exercise completion (ensure duration is in hours)
+    exercise_comp = min(activity_data['exercise_duration'] / pet_data['exercise_dur'], 1)
+
+    # Calculate sleep completion (ensure time is in hours)
+    sleep_comp = min(sleep_duration / 8, 1) # hard code as 8 rn cant be fucked 
+
+    # Calculate happiness
+    happiness = 50 * sleep_comp + 30 * diet_comp + 20 * exercise_comp
+
+
+    pet_update = PetStats(**pet_data)
+    # Update pet data with calculated happiness
+    pet_update.happiness = int(happiness)
+    pet_update.exercise = int(100 * exercise_comp)
+    pet_update.diet = int(100 * diet_comp)
+    pet_update.sleep = int(100 * sleep_comp)
+
+    # Post the updated pet data
+    resp = await post_user_pet(user_id, pet_update)
+
+    # Create and store daily activity
+    daily_activity = DailyActivity(
+        activity_id=user_id,
+        date=date.today(),
+        wake_up_time=None,
+        sleep_time=None,  # You may want to set this to actual sleep time
+        exercise_duration=0,  # Update this based on actual data
+        meals=[]  # You can fill this if there are meals to log
+    )
+
+    resp = await post_activity(user_id, daily_activity)
+
+    # Return response
+    return {"message": "Daily activity stored successfully!", "key": sleep_duration}
+
+@app.post("/user/{user_id}/activity/sleep")
+async def set_sleep(user_id: int):
+    activity_data = await get_activity(user_id)
+
+    currenttime = datetime.now()
+    activity_update = DailyActivity(**activity_data)
+
+    activity_update.sleep_time = currenttime
+    resp = await post_activity(user_id, activity_update)
+
+    return {"message": "Succeed to log sleep", "key": currenttime}
     
 
-@app.post("/user/activity/sleep")
-async def set_sleep():
-
-    currentdate = datetime.date - timedelta(day=1)
+@app.post("/user/{user_id}/activity/exercise")
+async def log_exercise(user_id: int,exercise_dur: float):
+    activity_data = await get_activity(user_id)
     
+    activity_update = DailyActivity(**activity_data)
 
-    # Process pet_data if needed
-    return {"message": f"{pet_data['pet_name']} has woken up!", "pet_info": pet_data}
-    
-# @app.post("/user/{pet_id}")
-# async def log_in_activity():
-#     raise NotImplementedError
+    activity_update.exercise_duration = exercise_dur
+    resp = await post_activity(user_id, activity_update)
 
-# @app.post("/pet/{pet_id}/sleep")
-# async def log_in_sleep(pet_id: int):
-
-#     query = f"""
-    
-#     """
-
-#     raise NotImplementedError
-
-# @app.post("/pet/{pet_id}/exercise")
-# async def log_in_exercise():
-#     raise NotImplementedError
-
-
-# @app.post("/analyze-food")
-# async def analyze_food(file: UploadFile = File(...)):
-#     try:
-#         # Read and preprocess the image
-#         contents = await file.read()
-#         image = Image.open(io.BytesIO(contents))
-        
-#         # TODO: Implement actual food classification
-#         # For now, return a mock response
-#         return {
-#             "food_type": "healthy",
-#             "confidence": 0.85,
-#             "calories": 250,
-#             "nutrition_score": 8.5
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-
-# @app.post("/settings")
-# async def update_settings(settings: UserSettings):
-#     try:
-#         # TODO: Save settings to database
-#         return {"status": "success", "settings": settings}
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-
-# @app.get("/pet-stats")
-# async def get_pet_stats():
-#     # TODO: Calculate actual stats based on user behavior
-#     return PetStats(
-#         health=85.0,
-#         happiness=90.0,
-#         energy=75.0,
-#         hunger=80.0
-#     )
-
-# @app.post("/screen-time")
-# async def log_screen_time(minutes: int):
-#     try:
-#         # TODO: Log screen time and update pet stats
-#         return {"status": "success", "minutes_logged": minutes}
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
+    return {"message": "Succeed to log exercise"}
 
 if __name__ == "__main__":
     import uvicorn
