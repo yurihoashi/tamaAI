@@ -14,6 +14,7 @@ __pycache__/
 venv/
 env/
 .env/
+tama.venv/
 
 # Conda Environments
 *.conda
@@ -59,7 +60,9 @@ coverage.xml
 
 # Secure Astra connection bundle
 secure-connect-pet-db.zip
-tama.venv
+
+# Node.js dependencies
+node_modules/
 
 # Python
 *.pyc
