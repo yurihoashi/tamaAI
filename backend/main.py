@@ -1,4 +1,4 @@
-from datetime import datetime, time, date
+from datetime import datetime, time, date, timedelta
 import logging
 import shutil
 from typing import List, Optional
@@ -50,6 +50,7 @@ class MealActivity(BaseModel):
     healthy_score: int  # Healthy score
 
 class DailyActivity(BaseModel):
+    activity_id: int
     date: date 
     wake_up_time: Optional[time]
     sleep_time: Optional[time]
@@ -63,27 +64,33 @@ class PetStats(BaseModel):
     pet_name: str
 
     # STATS
-    happiness: float
-    diet: float
-    exercise: float
+    happiness: int
+    diet: int
+    exercise: int
+    sleep: int
     
     # GOALS
-    exercise: time
-    wake_goal: datetime
+    exercise_dur: float
+    wake_up_time: time
+    sleep_time: time
     unhealthy_food_limit: int
-
-    #temporary
-    sleep_time: Optional[time] = None
+    meal_per_day: int
 
 
-class User(BaseModel):
+
+
+
+class User(BaseModel): ## this is the input 
     id: int
     username: str
     email: str
-    sleep_time: datetime
-    wake_time: datetime
-    screen_time_limit: int 
+
+    # GOAL to PETSTATS
+    exercise_dur: float
+    wake_up_time: time
+    sleep_time: time 
     unhealthy_food_limit: int
+    meal_per_day: int
 
 
 @app.post("/user")
@@ -95,11 +102,7 @@ async def create_user_db(user: User):
                 id INT PRIMARY KEY,
                 username TEXT,
                 email TEXT,
-                created_at TIMESTAMP,
-                sleep_time TIME,
-                wake_time TIME,
-                screen_time_limit INT,
-                unhealthy_food_limit INT
+                created_at TIMESTAMP
             );
         """)
 
@@ -111,15 +114,11 @@ async def create_user_db(user: User):
     try:
         create_at = datetime.now()
         # Insert the user into the database
-        session.execute(
-            f"""
+        session.execute(f"""
             INSERT INTO {keyspace}.userspace (id, username, email, created_at)
             VALUES (%s, %s, %s, %s)
-            """,
-            (
-                user.id, user.username, user.email, create_at
-            )
-        )
+        """, (user.id, user.username, user.email, create_at))
+
         logging.info(f"User {user.id} created successfully")
 
         # Create a pet for the user
@@ -127,13 +126,16 @@ async def create_user_db(user: User):
         pet_stats = PetStats(
             pet_id=user.id,
             pet_name=pet_name,
-            happiness=100.0,
-            diet=100.0,
-            exercise=100.0,
-            wake_goal=user.wake_time, 
-            unhealthy_food_limit=user.unhealthy_food_limit
+            happiness=100,
+            diet=100,
+            exercise=100,
+            sleep=100,
+            exercise_dur=user.exercise_dur,
+            wake_up_time=user.wake_up_time,
+            sleep_time=user.sleep_time,
+            unhealthy_food_limit=user.unhealthy_food_limit,
+            meal_per_day=user.meal_per_day
         )
-
 
          # Insert the pet into the database
         session.execute(
@@ -141,33 +143,84 @@ async def create_user_db(user: User):
             CREATE TABLE IF NOT EXISTS {keyspace}.petspace (
                 pet_id INT PRIMARY KEY,
                 pet_name TEXT,
-                happiness FLOAT,
-                diet FLOAT,
-                exercise FLOAT,
-                sleep_time TIME
+                happiness INT,
+                diet INT,
+                exercise INT,
+                sleep INT,
+                exercise_dur FLOAT,
+                wake_up_time TEXT,
+                sleep_time TEXT,
+                unhealthy_food_limit INT,
+                meal_per_day INT
             );
             """
         )
 
         session.execute(
             f"""
-            INSERT INTO {keyspace}.petspace (pet_id, pet_name, happiness, diet, exercise, sleep_time)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO {keyspace}.petspace 
+            (pet_id, pet_name, happiness, diet, exercise, sleep, exercise_dur, wake_up_time, sleep_time, unhealthy_food_limit, meal_per_day)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 pet_stats.pet_id, 
                 pet_stats.pet_name, 
+
                 pet_stats.happiness, 
-                pet_stats.diet, 
+                pet_stats.diet,
                 pet_stats.exercise,
-                pet_stats.sleep_time if pet_stats.sleep_time is not None else None
+                pet_stats.sleep,
+
+                pet_stats.exercise_dur, 
+                str(pet_stats.wake_up_time),
+                str(pet_stats.sleep_time), 
+                pet_stats.unhealthy_food_limit, 
+                pet_stats.meal_per_day
             )
         )
         
         logging.info(f"Pet {pet_name} created for user {user.id} successfully")
 
-   
-        return {"message": f"Pet {pet_name} created for user {user.id} successfully"}
+        # set activity log 
+        session.execute("""
+            CREATE TABLE IF NOT EXISTS {keyspace}.activityspace (
+                activity_id INT PRIMARY KEY,
+                date DATE,
+                wake_up_time TEXT,  -- Store as string (ISO 8601 format) or INT (timestamp)
+                sleep_time TEXT,    -- Store as string (ISO 8601 format) or INT (timestamp)
+                exercise_duration FLOAT,  -- Float for exercise duration in hours or minutes
+                meals TEXT,  -- Store meals as a JSON string or use a list of maps/sets for structured data
+            );
+        """)
+
+        daily_activity = DailyActivity(
+            activity_id=user.id,
+            date=date.today(),
+            wake_up_time=None,
+            sleep_time=None,
+            exercise_durection=0,
+            meals=None
+        )
+
+        session.execute(
+            f"""
+            INSERT INTO {keyspace}.activityspace 
+            (activity_id, date, wake_up_time, sleep_time, exercise_duration, meals)
+            VALUES ( %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                daily_activity.activity_id, 
+                daily_activity.date, 
+                daily_activity.wake_up_time,
+                daily_activity.sleep_time,
+                daily_activity.exercise_durection,
+                daily_activity.meals
+            )
+        )
+
+
+
+        return {"message": f"Pet {pet_name} created for user {user.id} successfully , Activity log {daily_activity.activity_id}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error inserting user into database: {e}")
 
@@ -190,18 +243,23 @@ async def get_user(user_id: int):
         raise HTTPException(status_code=500, detail=f"Error fetching user: {e}")
 
 
+
 @app.get('/user/pet/{pet_id}')
 async def get_user_pet(pet_id: int):
-    # First, retrieve the user's information
+    # Check Redis cache first
     cached_pet = redis_client.get(f"pet_stats:{pet_id}")
     
     if cached_pet:
         return json.loads(cached_pet)  # Deserialize JSON data
-    
+
     try:
-        # Now, use the username to find the pet
-        pet_query = "SELECT pet_id, pet_name, happiness, diet, exercise, sleep_time FROM pet.petspace WHERE pet_id = %s"
-        pet_row = session.execute(pet_query, (pet_id,)).one()  # Assuming the pet name is formed as "{username}'s Pet"
+        # Ensure `wake_goal` exists in the database or replace it with `wake_up_time`
+        pet_query = """
+            SELECT pet_id, pet_name, happiness, diet, exercise, sleep,
+                   wake_up_time, sleep_time, exercise_dur, unhealthy_food_limit, meal_per_day
+            FROM pet.petspace WHERE pet_id = %s
+        """
+        pet_row = session.execute(pet_query, (pet_id,)).one()
 
         if pet_row:
             pet_data = {
@@ -210,34 +268,48 @@ async def get_user_pet(pet_id: int):
                 "happiness": pet_row.happiness,
                 "diet": pet_row.diet,
                 "exercise": pet_row.exercise,
-                "sleep_time": pet_row.sleep_time
+                "sleep": pet_row.sleep,
+                "wake_up_time": str(pet_row.wake_up_time),  # Convert time to string
+                "sleep_time": str(pet_row.sleep_time),
+                "exercise_dur": pet_row.exercise_dur,
+                "unhealthy_food_limit": pet_row.unhealthy_food_limit,
+                "meal_per_day": pet_row.meal_per_day
             }
 
-            redis_client.set(f"pet_stats:{pet_id}", json.dumps(pet_data), ex=86400)  # Cache for 1 hour
+            # Cache the pet data for 1 hour (3600 seconds)
+            redis_client.set(f"pet_stats:{pet_id}", json.dumps(pet_data), ex=3600)
             
             return pet_data
-        
         else:
             raise HTTPException(status_code=404, detail="Pet not found")
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching user or pet: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching pet: {e}")
+
 
 
 @app.post("/user/pet/{user_id}")
 async def post_user_pet(user_id: int, pet_update: PetStats):
     try:
-        # Update the pet information in the database
+        # Correct SQL query with proper field assignments
         update_query = """
             UPDATE pet.petspace 
-            SET pet_name = %s, happiness = %s, exercise = %s, diet = %s, sleep_time= %s
+            SET pet_name = %s, happiness = %s, diet = %s, exercise = %s, sleep=%s,
+                wake_up_time = %s, sleep_time = %s, exercise_dur = %s, 
+                unhealthy_food_limit = %s, meal_per_day= %s
             WHERE pet_id = %s
         """
         session.execute(update_query, (
             pet_update.pet_name, 
-            pet_update.exercise, 
-            pet_update.happiness, 
+            pet_update.happiness,  # Fixed order
             pet_update.diet, 
+            pet_update.exercise, 
+            pet_update.sleep,
+            pet_update.wake_up_time,
             pet_update.sleep_time,
+            pet_update.exercise_dur,
+            pet_update.unhealthy_food_limit,
+            pet_update.meal_per_day,
             user_id
         ))
 
@@ -245,30 +317,47 @@ async def post_user_pet(user_id: int, pet_update: PetStats):
         pet_data = {
             "pet_id": user_id,
             "pet_name": pet_update.pet_name,
-            "exercise": pet_update.exercise, 
             "happiness": pet_update.happiness,
-            "diet":  pet_update.diet,
-            "sleep_time": pet_update.sleep_time
+            "diet": pet_update.diet,
+            "exercise": pet_update.exercise,
+            "sleep": pet_update.sleep,
+            "wake_up_time": str(pet_update.wake_up_time),  # Convert to string
+            "sleep_time": str(pet_update.sleep_time),
+            "exercise_dur": pet_update.exercise_dur,
+            "unhealthy_food_limit": pet_update.unhealthy_food_limit,
+            "meal_per_day": pet_update.meal_per_day
         }
 
-        # Store the updated pet data in Redis for 24 hours
+        # Store the updated pet data in Redis for 24 hours (86400 seconds)
         redis_client.set(f"pet_stats:{user_id}", json.dumps(pet_data), ex=86400)
 
         return {"message": "Pet data updated successfully", "pet_data": pet_data}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating pet data: {e}")
+
+@app.post("/user/activity")
+async def post_activity():
+    raise NotImplementedError
+
+
+@app.post("/user/activity/wake")
+async def set_wake():
+    activity_date = datetime.date
+    key = f"daily_activity:{activity_date}"
+
+    value = activitydate.model_dump_json()  # Serialize the object
+
+    redis_client.set(key, value)  # Store in Redis
+
+    return {"message": "Daily activity stored successfully!", "key": key}
+
     
 
-@app.post("/user/{pet_id}/")
+@app.post("/user/activity/sleep")
+async def set_sleep():
 
-@app.get("/user/{pet_id}/wake")
-async def log_in_wake(pet_id: int):
-
-    pet_data = await get_user_pet(pet_id)  # Call the async function
-    pet_data = pet_data["pet_data"]
-
-
+    currentdate = datetime.date - timedelta(day=1)
     
 
     # Process pet_data if needed
