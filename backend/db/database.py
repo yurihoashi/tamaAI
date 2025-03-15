@@ -71,19 +71,19 @@ load_dotenv()
 #     return session
 
 # Database Models
-class User(Model):
-    __keyspace__ = keyspace_env
-    __table_name__ = 'users'
+# class User(Model):
+#     __keyspace__ = keyspace_env
+#     __table_name__ = 'users'
     
-    user_id = columns.UUID(primary_key=True, default=uuid.uuid4)  # Generates UUID automatically
-    username = columns.Text(required=True, index=True)  # Required
-    email = columns.Text(required=True)  # Required
+#     user_id = columns.UUID(primary_key=True, default=uuid.uuid4)  # Generates UUID automatically
+#     username = columns.Text(required=True, index=True)  # Required
+#     email = columns.Text(required=True)  # Required
     
-    # Optional fields
-    sleep_time = columns.Time(required=False)
-    wake_time = columns.Time(required=False)
-    screen_time_limit = columns.Integer(required=False)
-    unhealthy_food_limit = columns.Integer(required=False)
+#     # Optional fields
+#     sleep_time = columns.Time(required=False)
+#     wake_time = columns.Time(required=False)
+#     screen_time_limit = columns.Integer(required=False)
+#     unhealthy_food_limit = columns.Integer(required=False)
     
 
 # class PetStats(Model):

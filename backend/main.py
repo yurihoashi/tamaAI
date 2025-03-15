@@ -1,9 +1,12 @@
-from datetime import datetime
+from datetime import datetime, time, date
 import logging
+import shutil
+from typing import List, Optional
 import uuid
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from fastapi.responses import JSONResponse
 from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
 import json
@@ -37,6 +40,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class MealActivity(BaseModel):
+    meal_name: str
+    healthy_score: int  # Healthy score out of 100
+
+class DailyActivity(BaseModel):
+    date: date 
+    wake_up_time: Optional[time]
+    eat_times: Optional[List[time]]  # List of times for each meal
+    exercise_time: Optional[time]
+    meals: Optional[List[MealActivity]]
+
+
 
 
 
@@ -186,10 +202,21 @@ async def get_user_pet(user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching user or pet: {e}")
 
-
-
-@app.post("/user/{}")
+    
+@app.post("/user/{pet_id}")
 async def log_in_activity():
+    raise NotImplementedError
+
+@app.post("/pet/{pet_id}/diet")
+async def log_in_diet():
+    raise NotImplementedError
+
+@app.post("/pet/{pet_id}/sleep")
+async def log_in_sleep(pet_id: int, ):
+    raise NotImplementedError
+
+@app.post("/pet/{pet_id}/exercise")
+async def log_in_exercise():
     raise NotImplementedError
 
 
