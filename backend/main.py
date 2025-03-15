@@ -63,10 +63,9 @@ class DailyActivity(BaseModel):
 class PetStats(BaseModel):
     pet_id: int 
     pet_name: str
-    health: float
     happiness: float
-    energy: float
-    hunger: float
+    diet: float
+    exercise: float
 
 class User(BaseModel):
     id: int
@@ -76,12 +75,6 @@ class User(BaseModel):
     wake_time: datetime
     screen_time_limit: int 
     unhealthy_food_limit: int 
-
-
-
-@app.get("/")
-async def root():
-    return {"message": "TamaAI Backend API"}
 
 
 @app.post("/user")
@@ -126,10 +119,9 @@ async def create_user_db(user: User):
         pet_stats = PetStats(
             pet_id=user.id,
             pet_name=pet_name,
-            health=100.0,  # Set default values for the pet stats
             happiness=100.0,
-            energy=100.0,
-            hunger=0.0
+            diet=100.0,
+            exercise=100.0
         )
 
 
@@ -139,22 +131,20 @@ async def create_user_db(user: User):
             CREATE TABLE IF NOT EXISTS {keyspace}.petspace (
                 pet_id INT PRIMARY KEY,
                 pet_name TEXT,
-                health FLOAT,
                 happiness FLOAT,
-                energy FLOAT,
-                hunger FLOAT
+                diet FLOAT,
+                exercise FLOAT,
             );
             """
         )
 
         session.execute(
             f"""
-            INSERT INTO {keyspace}.petspace (pet_id, pet_name, health, happiness, energy, hunger)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO {keyspace}.petspace (pet_id, pet_name, happiness, diet, exercise)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (
-                pet_stats.pet_id, pet_stats.pet_name, pet_stats.health,
-                pet_stats.happiness, pet_stats.energy, pet_stats.hunger
+                pet_stats.pet_id, pet_stats.pet_name, pet_stats.happiness, pet_stats.diet, pet_stats.exercise
             )
         )
         
@@ -163,7 +153,6 @@ async def create_user_db(user: User):
         return {"message": f"Pet {pet_name} created for user {user.id} successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error inserting user into database: {e}")
-
 
 
 @app.get("/user/{user_id}")
@@ -184,30 +173,29 @@ async def get_user(user_id: int):
         raise HTTPException(status_code=500, detail=f"Error fetching user: {e}")
 
 
-@app.get('/user/pet/{user_id}')
-async def get_user_pet(user_id: int):
+@app.get('/user/pet/{pet_id}')
+async def get_user_pet(pet_id: int):
     # First, retrieve the user's information
-    cached_pet = redis_client.get(f"pet_stats:{user_id}")
+    cached_pet = redis_client.get(f"pet_stats:{pet_id}")
     
     if cached_pet:
         return json.loads(cached_pet)  # Deserialize JSON data
     
     try:
         # Now, use the username to find the pet
-        pet_query = "SELECT pet_id, pet_name, health, happiness, energy, hunger FROM pet.petspace WHERE pet_id = %s"
-        pet_row = session.execute(pet_query, (user_id,)).one()  # Assuming the pet name is formed as "{username}'s Pet"
+        pet_query = "SELECT pet_id, pet_name, happiness, diet, exercise FROM pet.petspace WHERE pet_id = %s"
+        pet_row = session.execute(pet_query, (pet_id,)).one()  # Assuming the pet name is formed as "{username}'s Pet"
 
         if pet_row:
             pet_data = {
                 "pet_id": pet_row.pet_id,
                 "pet_name": pet_row.pet_name,
-                "health": pet_row.health,
                 "happiness": pet_row.happiness,
-                "energy": pet_row.energy,
-                "hunger": pet_row.hunger
+                "diet": pet_row.diet,
+                "exercise": pet_row.exercise,
             }
 
-            redis_client.set(f"pet_stats:{user_id}", json.dumps(pet_data), ex=86400)  # Cache for 1 hour
+            redis_client.set(f"pet_stats:{pet_id}", json.dumps(pet_data), ex=86400)  # Cache for 1 hour
             
             return pet_data
         
@@ -216,22 +204,53 @@ async def get_user_pet(user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching user or pet: {e}")
 
+
+@app.post("/user/pet/{user_id}")
+async def post_user_pet(user_id: int, pet_update: PetStats):
+    try:
+        # Update the pet information in the database
+        update_query = """
+            UPDATE pet.petspace 
+            SET pet_name = %s, happiness = %s, exercise = %s, diet = %s
+            WHERE pet_id = %s
+        """
+        session.execute(update_query, (
+            pet_update.pet_name, 
+            pet_update.exercise, 
+            pet_update.happiness, 
+            pet_update.diet, 
+            user_id
+        ))
+
+        # After updating the database, update the cache in Redis
+        pet_data = {
+            "pet_id": user_id,
+            "pet_name": pet_update.pet_name,
+            "health": pet_update.exercise, 
+            "happiness": pet_update.happiness,
+            "energy":  pet_update.diet
+        }
+
+        # Store the updated pet data in Redis for 24 hours
+        redis_client.set(f"pet_stats:{user_id}", json.dumps(pet_data), ex=86400)
+
+        return {"message": "Pet data updated successfully", "pet_data": pet_data}
     
-@app.post("/user/{pet_id}")
-async def log_in_activity():
-    raise NotImplementedError
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating pet data: {e}")
+    
+    
+# @app.post("/user/{pet_id}")
+# async def log_in_activity():
+#     raise NotImplementedError
 
-@app.post("/pet/{pet_id}/diet")
-async def log_in_diet():
-    raise NotImplementedError
+# @app.post("/pet/{pet_id}/sleep")
+# async def log_in_sleep(pet_id: int, sleep_time : datetime ):
+#     raise NotImplementedError
 
-@app.post("/pet/{pet_id}/sleep")
-async def log_in_sleep(pet_id: int, ):
-    raise NotImplementedError
-
-@app.post("/pet/{pet_id}/exercise")
-async def log_in_exercise():
-    raise NotImplementedError
+# @app.post("/pet/{pet_id}/exercise")
+# async def log_in_exercise():
+#     raise NotImplementedError
 
 
 # @app.post("/analyze-food")
